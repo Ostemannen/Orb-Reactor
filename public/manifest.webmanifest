@@ -1,0 +1,11 @@
+{
+  "name": "ORB REACTOR",
+  "short_name": "Orb Reactor",
+  "description": "Physics arcade roguelite. Great games. Fair mechanics. No bullshit.",
+  "start_url": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#050816",
+  "theme_color": "#050816",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}

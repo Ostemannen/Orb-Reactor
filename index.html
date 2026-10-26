@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+    <meta name="theme-color" content="#050816" />
+    <meta name="description" content="ORB REACTOR — a physics arcade roguelite. Aim, fire, chain reactions, draft upgrades. Great games. Fair mechanics. No bullshit." />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" type="image/svg+xml" href="./icon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet" />
+    <title>ORB REACTOR</title>
+  </head>
+  <body>
+    <div id="app">
+      <div id="hud-root"></div>
+      <div id="stage-wrap"><div id="game-root"></div></div>
+      <div id="bottom-root"></div>
+      <div id="screens"></div>
+      <div id="toasts" aria-live="polite"></div>
+      <div id="boot" class="boot"><div class="boot-orb"></div><p>Charging reactor…</p></div>
+    </div>
+    <noscript>ORB REACTOR needs JavaScript to run.</noscript>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

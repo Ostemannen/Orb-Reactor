@@ -1,0 +1,21 @@
+{
+  "name": "orb-reactor",
+  "private": true,
+  "version": "1.0.0",
+  "description": "ORB REACTOR — a physics-based arcade roguelite. Great games. Fair mechanics. No bullshit.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "sim": "node scripts/sim.mjs"
+  },
+  "dependencies": {
+    "phaser": "3.90.0"
+  },
+  "devDependencies": {
+    "typescript": "5.9.3",
+    "vite": "6.4.5"
+  }
+}
