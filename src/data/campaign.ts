@@ -32,6 +32,21 @@ export const WORLDS = [
   'Graviton Well', 'Echo Chamber', 'Quantum Loom', 'Singularity Gate', 'Omega Reactor',
 ];
 
+/** Board shapes per world, so every world has its own look. Bosses use a set-piece shape. */
+export const WORLD_LAYOUTS: string[][] = [
+  ['grid', 'lattice45'], ['grid', 'checker', 'crosses'], ['diamonds', 'pyramid', 'hourglass'], ['arches', 'chevrons'],
+  ['waves', 'zigzag', 'dna'], ['rings', 'bubbles', 'bullseye'], ['funnel', 'hourglass', 'columns'], ['spiral', 'pinwheel', 'chevrons'],
+  ['vortex', 'galaxy', 'scatter'], ['hexfield', 'crosses', 'maze'], ['flower', 'heart', 'scatter'], ['lattice45', 'star', 'checker'],
+  ['bullseye', 'atom', 'chevrons'], ['scatter', 'zigzag', 'ladder'], ['star', 'diamonds', 'pyramid'], ['galaxy', 'spiral', 'bubbles'],
+  ['dna', 'waves', 'columns'], ['maze', 'ladder', 'checker'], ['vortex', 'pinwheel', 'atom'],
+  ['heart', 'star', 'atom', 'galaxy', 'flower', 'bullseye', 'maze', 'dna', 'hourglass', 'pinwheel'],
+];
+const BOSS_LAYOUTS = ['core', 'heart', 'star', 'atom', 'bullseye', 'galaxy', 'flower'];
+
+/** Stars per level, and the score multipliers (vs. a skilled run) for stars 2–6. */
+export const MAX_STARS = 6;
+export const STAR_STEPS = [0.6, 0.8, 1.0, 1.25, 1.6];
+
 /** Peg types introduced at a level, shown as a "new mechanic" tip. */
 export const INTRODUCTIONS: Record<number, { peg?: PegType; text: string }> = {
   1: { text: 'Drag to aim, release to fire. Hit pegs to charge the reactor.' },
@@ -43,7 +58,6 @@ export const INTRODUCTIONS: Record<number, { peg?: PegType; text: string }> = {
   16: { peg: 'portal', text: 'Portals warp your orb across the chamber, keeping its speed.' },
   31: { peg: 'shield', text: 'Shield pegs crack on the first hit and pay big on the second.' },
   46: { peg: 'converter', text: 'Converter pegs turn your combo into credits.' },
-  61: { text: 'New sectors unlocked: spiral, vortex and hex chambers.' },
   76: { text: 'Stage modifiers now appear on some levels. Read them before you shoot!' },
 };
 
@@ -61,12 +75,13 @@ export interface LevelPlan {
   seed: number;
   modifiers: string[];
   unlocked: string[];
+  layout: string;
 }
 
 export interface LevelDef extends LevelPlan {
   target: number;
-  /** Score needed for 2 and 3 stars. */
-  stars: [number, number];
+  /** Score needed for stars 2–6. */
+  stars: number[];
 }
 
 /** Deterministic level layout. `variant` lets the calibrator reroll a bad board. */
@@ -96,10 +111,13 @@ export function planLevel(n: number, variant = 0, objectiveOverride?: ObjectiveK
     const usable = MODIFIERS.filter((m) => !m.requires || unlocked.includes(m.requires === 'portal' ? 'peg_portal' : 'peg_shield'));
     modifiers.push(rng.pick(usable).id);
   }
+  const layout = boss
+    ? BOSS_LAYOUTS[(world - 1) % BOSS_LAYOUTS.length]
+    : rng.pick(WORLD_LAYOUTS[(world - 1) % WORLD_LAYOUTS.length]);
   const shots = 5 + (objective === 'clear' || objective === 'shields' ? 1 : 0) + (boss ? 1 : 0) + (n <= 3 ? 1 : 0);
   return {
     n, world, worldName: WORLDS[(world - 1) % WORLDS.length], index, boss, tier, objective, shots,
-    seed: hashString(`campaign-${n}-${variant}`), modifiers, unlocked,
+    seed: hashString(`campaign-${n}-${variant}`), modifiers, unlocked, layout,
   };
 }
 
@@ -111,6 +129,7 @@ export function levelSetup(plan: LevelPlan, target = 999999): StageSetup {
   const stage = plan.boss ? (plan.tier < 7 ? 5 : 10) : plan.tier === 5 || plan.tier === 10 ? plan.tier - 1 : plan.tier;
   const setup = generateStage({
     stage, seed: plan.seed, modifiers: plan.modifiers, mods: CAMPAIGN_MODS, unlocked: new Set(plan.unlocked), baseShots: plan.shots,
+    layouts: [plan.layout],
   });
   setup.target = plan.objective === 'energy' ? target : 999999;
   return setup;
@@ -133,7 +152,7 @@ export function shotBonus(plan: LevelPlan): number {
   return 1500 + plan.tier * 500;
 }
 
-interface Calibrated { v: number; t: number; s: [number, number]; o?: ObjectiveKind }
+interface Calibrated { v: number; t: number; s: number[]; o?: ObjectiveKind }
 const TABLE = calibrated as unknown as Record<string, Calibrated>;
 
 export function getLevel(n: number): LevelDef | null {
@@ -147,5 +166,7 @@ export function levelCount(): number {
 }
 
 export function starsFor(def: LevelDef, score: number): number {
-  return score >= def.stars[1] ? 3 : score >= def.stars[0] ? 2 : 1;
+  let stars = 1;
+  for (const t of def.stars) if (score >= t) stars++;
+  return Math.min(MAX_STARS, stars);
 }

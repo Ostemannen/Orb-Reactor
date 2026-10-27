@@ -6,7 +6,8 @@ import { stageConfig, SECTOR_LAYOUTS } from '../../data/stages';
 import { MODIFIER_MAP } from '../../data/modifiers';
 import type { Mods } from '../../data/upgrades';
 
-interface Pt { x: number; y: number }
+/** `f` marks filler points, dropped before shape points when a board has too many. */
+interface Pt { x: number; y: number; f?: boolean }
 interface Zone { x: number; y: number; r: number }
 
 const F = BOARD.field;
@@ -20,14 +21,16 @@ export interface GenerateOptions {
   unlocked: Set<string>;
   baseShots: number;
   targetMul?: number;
+  /** Restrict layout choice (campaign worlds). */
+  layouts?: string[];
 }
 
 /** Build a complete, reproducible stage from a seed. */
 export function generateStage(opts: GenerateOptions): StageSetup {
   const rng = new Rng(opts.seed);
   const cfg = stageConfig(opts.stage);
-  const layouts = [...cfg.layouts];
-  if (!cfg.core && opts.unlocked.has('sectors') && opts.stage >= 2) layouts.push(...SECTOR_LAYOUTS);
+  const layouts = opts.layouts?.length ? [...opts.layouts] : [...cfg.layouts];
+  if (!opts.layouts?.length && !cfg.core && opts.unlocked.has('sectors') && opts.stage >= 2) layouts.push(...SECTOR_LAYOUTS);
   const layout = rng.pick(layouts);
 
   // ── Peg counts ────────────────────────────────────────────────────────
@@ -71,16 +74,20 @@ export function generateStage(opts: GenerateOptions): StageSetup {
 
   // ── Big pieces first: reactor nodes, portals, boosters ────────────────
   const isCore = layout === 'core';
+  const shapeInfo = SHAPES[layout];
+  const fixedCenter = isCore || !!shapeInfo;
   const reactorSpots: Pt[] = isCore
     ? [{ x: 270, y: 500 }, { x: 120, y: 300 }, { x: 420, y: 300 }, { x: 270, y: 760 }]
+    : shapeInfo
+    ? [...shapeInfo.reactors, { x: 110, y: 790 }, { x: 430, y: 790 }]
     : rng.shuffle([
         { x: 150, y: 470 }, { x: 390, y: 470 }, { x: 270, y: 640 }, { x: 270, y: 330 },
         { x: 130, y: 700 }, { x: 410, y: 700 },
       ]);
   for (let i = 0; i < counts.reactor && i < reactorSpots.length; i++) {
     const s = reactorSpots[i];
-    const jx = isCore && i === 0 ? 0 : rng.range(-26, 26);
-    const jy = isCore && i === 0 ? 0 : rng.range(-20, 20);
+    const jx = fixedCenter ? 0 : rng.range(-26, 26);
+    const jy = fixedCenter ? 0 : rng.range(-20, 20);
     add('reactor', s.x + jx, s.y + jy);
     zones.push({ x: s.x + jx, y: s.y + jy, r: 58 });
   }
@@ -116,7 +123,8 @@ export function generateStage(opts: GenerateOptions): StageSetup {
 
   // ── Moving groups ─────────────────────────────────────────────────────
   const moverPegs: PegSpec[] = [];
-  for (let i = 0; i < cfg.movers; i++) {
+  // Shape sectors stay still so the picture reads clearly.
+  for (let i = 0; i < (shapeInfo ? 0 : cfg.movers); i++) {
     for (let tries = 0; tries < 40; tries++) {
       const cx = rng.range(150, 390);
       const cy = rng.range(300, 720);
@@ -161,10 +169,14 @@ export function generateStage(opts: GenerateOptions): StageSetup {
 
   const smallTypes: PegType[] = ['charged', 'multiplier', 'split', 'bomb', 'converter', 'shield'];
   const specialTotal = smallTypes.reduce((s, t) => s + counts[t], 0);
-  const wanted = Math.min(placed.length, specialTotal + counts.standard);
-  // Drop surplus points randomly but deterministically.
-  rng.shuffle(placed);
-  const usable = placed.slice(0, wanted);
+  const shapeCount = placed.filter((p) => !p.f).length;
+  let wanted = Math.min(placed.length, specialTotal + counts.standard);
+  // Shape sectors only top up a little with filler, so the shape stays readable.
+  if (shapeInfo) wanted = Math.min(wanted, Math.max(shapeCount, specialTotal) + Math.round((wanted - shapeCount) * (shapeInfo.fill ?? 0.35)));
+  // Drop surplus points randomly but deterministically, filler first so shapes stay intact.
+  const shape = rng.shuffle(placed.filter((p) => !p.f));
+  const filler = rng.shuffle(placed.filter((p) => p.f));
+  const usable = [...shape, ...filler].slice(0, wanted);
   // Specials prefer the middle band of the board so they are reachable.
   const order = [...usable].sort((a, b) => scoreSpot(b, rng) - scoreSpot(a, rng));
   const typeQueue: PegType[] = [];
@@ -194,6 +206,24 @@ export function generateStage(opts: GenerateOptions): StageSetup {
   };
 }
 
+/** Recognisable picture layouts: fixed reactor spots inside the shape, no moving groups. */
+const CX = BOARD.width / 2;
+const CY = (F.top + F.bottom) / 2;
+const SHAPES: Record<string, { reactors: Pt[]; fill?: number }> = {
+  heart: { fill: 0.25, reactors: [{ x: CX, y: CY - 10 }] },
+  star: { fill: 0.25, reactors: [{ x: CX, y: CY + 10 }] },
+  flower: { reactors: [{ x: CX, y: CY }, { x: CX + 130, y: CY + 88 }, { x: CX - 130, y: CY - 88 }] },
+  atom: { fill: 0.45, reactors: [{ x: CX, y: CY }] },
+  bullseye: { reactors: [{ x: CX, y: CY }] },
+  galaxy: { reactors: [{ x: 160, y: 300 }, { x: 390, y: 500 }, { x: 170, y: 720 }] },
+  pinwheel: { reactors: [{ x: CX, y: CY }] },
+  dna: { reactors: [{ x: CX, y: CY - 160 }, { x: CX, y: CY + 160 }] },
+  spiral: { fill: 0.6, reactors: [{ x: CX, y: CY }] },
+  vortex: { fill: 0.6, reactors: [{ x: CX, y: CY }] },
+  hourglass: { reactors: [{ x: 110, y: CY }, { x: 430, y: CY }] },
+  pyramid: { reactors: [{ x: 90, y: 260 }, { x: 450, y: 260 }] },
+};
+
 function scoreSpot(p: Pt, rng: Rng): number {
   const midY = (F.top + F.bottom) / 2;
   return -Math.abs(p.y - midY) / 400 + rng.next() * 1.2;
@@ -203,7 +233,234 @@ function layoutPoints(layout: string, rng: Rng): Pt[] {
   const pts: Pt[] = [];
   const W = F.right - F.left;
   const cx = BOARD.width / 2;
+  const cy = (F.top + F.bottom) / 2;
+  /** Sparse background grid used to top up shape layouts. */
+  const fill = (step: number, offY = 10) => {
+    for (let row = 0, y = F.top + offY; y < F.bottom; row++, y += step) {
+      for (let x = F.left + 12 + (row % 2) * (step / 2); x <= F.right; x += step) pts.push({ x, y, f: true });
+    }
+  };
+  const line = (x1: number, y1: number, x2: number, y2: number, step = 42) => {
+    const len = Math.hypot(x2 - x1, y2 - y1);
+    const n = Math.max(1, Math.round(len / step));
+    for (let i = 0; i <= n; i++) pts.push({ x: x1 + ((x2 - x1) * i) / n, y: y1 + ((y2 - y1) * i) / n });
+  };
+  const ring = (x: number, y: number, r: number, rot = 0, sy = 1) => {
+    const n = Math.max(5, Math.round((Math.PI * 2 * r) / 44));
+    for (let i = 0; i < n; i++) {
+      const a = rot + (i / n) * Math.PI * 2;
+      pts.push({ x: x + Math.cos(a) * r, y: y + Math.sin(a) * r * sy });
+    }
+  };
+  const polyline = (vs: Pt[], closed: boolean) => {
+    for (let i = 0; i < vs.length - (closed ? 0 : 1); i++) {
+      const a = vs[i];
+      const b = vs[(i + 1) % vs.length];
+      line(a.x, a.y, b.x, b.y);
+    }
+  };
   switch (layout) {
+    case 'lattice45': {
+      // Diamond lattice: a grid rotated 45°.
+      const s2 = 34;
+      for (let i = -20; i <= 20; i++) for (let j = -20; j <= 20; j++) {
+        if ((i + j) % 2 !== 0) continue;
+        pts.push({ x: cx + i * s2, y: cy + j * s2 });
+      }
+      break;
+    }
+    case 'chevrons': {
+      for (let y0 = F.top + 30, k = 0; y0 < F.bottom; y0 += 112, k++) {
+        const dir = k % 2 ? 1 : -1;
+        for (let x = F.left + 10; x <= F.right; x += 40) pts.push({ x, y: y0 + dir * (Math.abs(x - cx) * 0.32 - 38) });
+      }
+      fill(64, 40);
+      break;
+    }
+    case 'zigzag': {
+      for (let y0 = F.top + 50, k = 0; y0 < F.bottom; y0 += 128, k++) {
+        for (let x = F.left + 10; x <= F.right; x += 38) {
+          const t = ((x - F.left + k * 40) / 80) % 2;
+          pts.push({ x, y: y0 + (t < 1 ? t : 2 - t) * 64 - 32 });
+        }
+      }
+      fill(66, 20);
+      break;
+    }
+    case 'columns': {
+      for (let x = F.left + 30; x <= F.right; x += 104) {
+        const gapA = rng.range(F.top + 80, cy);
+        const gapB = rng.range(cy + 60, F.bottom - 60);
+        for (let y = F.top + 10; y < F.bottom; y += 44) {
+          if (Math.abs(y - gapA) < 50 || Math.abs(y - gapB) < 50) continue;
+          pts.push({ x, y });
+        }
+      }
+      fill(60, 30);
+      break;
+    }
+    case 'crosses': {
+      for (let r = 0, y = F.top + 50; y < F.bottom; r++, y += 128) {
+        for (let x = F.left + 60 + (r % 2) * 76; x < F.right; x += 152) {
+          pts.push({ x, y }, { x: x - 44, y }, { x: x + 44, y }, { x, y: y - 44 }, { x, y: y + 44 });
+        }
+      }
+      fill(72, 30);
+      break;
+    }
+    case 'pyramid': {
+      for (let row = 0; row < 14; row++) {
+        const n = Math.min(row + 1, 10);
+        const y = F.top + 20 + row * 46;
+        for (let j = 0; j < n; j++) pts.push({ x: cx + (j - (n - 1) / 2) * 48, y });
+      }
+      fill(70, 30);
+      break;
+    }
+    case 'hourglass': {
+      const rows = 15;
+      for (let row = 0; row < rows; row++) {
+        const n = 2 + Math.round(Math.abs(row - (rows - 1) / 2) * 1.1);
+        const y = F.top + 20 + row * 46;
+        for (let j = 0; j < n; j++) pts.push({ x: cx + (j - (n - 1) / 2) * 46, y });
+      }
+      fill(72, 20);
+      break;
+    }
+    case 'heart': {
+      for (const [scale, step] of [[14, 0.13], [8, 0.22]] as const) {
+        for (let t = 0; t < Math.PI * 2; t += step) {
+          const hx = 16 * Math.pow(Math.sin(t), 3);
+          const hy = 13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t);
+          pts.push({ x: cx + hx * scale, y: cy - 20 - hy * scale });
+        }
+      }
+      fill(64, 20);
+      break;
+    }
+    case 'star': {
+      const vs: Pt[] = [];
+      for (let i = 0; i < 10; i++) {
+        const a = -Math.PI / 2 + (i / 10) * Math.PI * 2;
+        const r = i % 2 ? 92 : 220;
+        vs.push({ x: cx + Math.cos(a) * r, y: cy + 10 + Math.sin(a) * r });
+      }
+      polyline(vs, true);
+      ring(cx, cy + 10, 44);
+      fill(70, 30);
+      break;
+    }
+    case 'flower': {
+      ring(cx, cy, 52);
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * Math.PI * 2 + Math.PI / 6;
+        ring(cx + Math.cos(a) * 150, cy + Math.sin(a) * 175, 50, a);
+      }
+      fill(76, 20);
+      break;
+    }
+    case 'galaxy': {
+      for (const c of [{ x: 160, y: 300 }, { x: 390, y: 500 }, { x: 170, y: 720 }]) {
+        for (let t = 0.5; t < Math.PI * 4; t += 0.42) {
+          const r = 10 + t * 9;
+          pts.push({ x: c.x + Math.cos(t) * r, y: c.y + Math.sin(t) * r });
+        }
+      }
+      fill(66, 30);
+      break;
+    }
+    case 'pinwheel': {
+      const rot = rng.range(0, Math.PI);
+      for (let a = 0; a < 5; a++) {
+        for (let k = 0; k < 9; k++) {
+          const r = 50 + k * 34;
+          const ang = rot + (a / 5) * Math.PI * 2 + k * 0.2;
+          pts.push({ x: cx + Math.cos(ang) * r, y: cy + Math.sin(ang) * r * 1.25 });
+        }
+      }
+      fill(68, 20);
+      break;
+    }
+    case 'atom': {
+      for (const rot of [0, Math.PI / 3, (2 * Math.PI) / 3]) {
+        for (let t = 0; t < Math.PI * 2; t += 0.21) {
+          const ex = Math.cos(t) * 215;
+          const ey = Math.sin(t) * 78;
+          pts.push({ x: cx + ex * Math.cos(rot) - ey * Math.sin(rot), y: cy + ex * Math.sin(rot) + ey * Math.cos(rot) });
+        }
+      }
+      pts.push({ x: cx, y: cy });
+      fill(72, 20);
+      break;
+    }
+    case 'bubbles': {
+      const circles: { x: number; y: number; r: number }[] = [];
+      for (let tries = 0; tries < 300 && circles.length < 9; tries++) {
+        const r = rng.range(42, 82);
+        const x = rng.range(F.left + r, F.right - r);
+        const y = rng.range(F.top + r, F.bottom - r);
+        if (circles.some((c) => Math.hypot(c.x - x, c.y - y) < c.r + r + 34)) continue;
+        circles.push({ x, y, r });
+        ring(x, y, r, rng.range(0, 1));
+      }
+      fill(70, 20);
+      break;
+    }
+    case 'ladder': {
+      for (let y = F.top + 20; y < F.bottom; y += 70) {
+        const gap1 = rng.range(F.left + 40, F.right - 40);
+        const gap2 = rng.range(F.left + 40, F.right - 40);
+        for (let x = F.left + 10; x <= F.right; x += 42) {
+          if (Math.abs(x - gap1) < 46 || Math.abs(x - gap2) < 30) continue;
+          pts.push({ x, y });
+        }
+      }
+      break;
+    }
+    case 'checker': {
+      for (let r = 0, y = F.top + 30; y < F.bottom; r++, y += 104) {
+        for (let c = 0, x = F.left + 30; x < F.right; c++, x += 104) {
+          if ((r + c) % 2) continue;
+          pts.push({ x, y }, { x: x + 44, y }, { x, y: y + 44 }, { x: x + 44, y: y + 44 });
+        }
+      }
+      fill(104, 82);
+      break;
+    }
+    case 'scatter': {
+      for (let tries = 0; tries < 900; tries++) {
+        const p = { x: rng.range(F.left, F.right), y: rng.range(F.top, F.bottom) };
+        if (pts.some((q) => Math.hypot(q.x - p.x, q.y - p.y) < 50)) continue;
+        pts.push(p);
+      }
+      break;
+    }
+    case 'maze': {
+      const cell = 94;
+      for (let gy = 0; gy < 7; gy++) for (let gx = 0; gx < 5; gx++) {
+        const x = F.left + 20 + gx * cell;
+        const y = F.top + 30 + gy * cell;
+        if (rng.chance(0.55)) line(x, y, x + cell * 0.8, y, 40);
+        else line(x, y, x, y + cell * 0.8, 40);
+      }
+      break;
+    }
+    case 'dna': {
+      for (let y = F.top + 10, i = 0; y < F.bottom; y += 30, i++) {
+        const a = y / 70;
+        const x1 = cx + Math.sin(a) * 150;
+        const x2 = cx - Math.sin(a) * 150;
+        pts.push({ x: x1, y }, { x: x2, y });
+        if (i % 4 === 0) line(x1, y, x2, y, 46);
+      }
+      for (let y = F.top + 40; y < F.bottom; y += 80) pts.push({ x: F.left + 16, y, f: true }, { x: F.right - 16, y: y + 40, f: true });
+      break;
+    }
+    case 'bullseye': {
+      for (const r of [70, 135, 200, 265]) ring(cx, cy, r, rng.range(0, 1), 1.15);
+      fill(76, 20);
+      break;
+    }
     case 'grid': {
       const dx = 50, dy = 48;
       for (let row = 0, y = F.top + 10; y < F.bottom; row++, y += dy) {
@@ -258,7 +515,7 @@ function layoutPoints(layout: string, rng: Rng): Pt[] {
         }
         pts.push(c);
       }
-      for (let y = F.top + 20; y < F.bottom; y += 52) for (let x = F.left + 10; x <= F.right; x += 52) pts.push({ x, y });
+      fill(52, 20);
       break;
     }
     case 'funnel': {
@@ -269,7 +526,7 @@ function layoutPoints(layout: string, rng: Rng): Pt[] {
           pts.push({ x: F.right - 12 - i * 34, y: top + i * 26 });
         }
       }
-      for (let y = F.top + 40; y < F.bottom; y += 50) for (let x = F.left + 30; x <= F.right; x += 48) pts.push({ x, y: y + rng.range(-6, 6) });
+      fill(50, 40);
       break;
     }
     case 'core': {
@@ -280,7 +537,7 @@ function layoutPoints(layout: string, rng: Rng): Pt[] {
           pts.push({ x: 270 + Math.cos(a) * r, y: 500 + Math.sin(a) * r * 1.25 });
         }
       }
-      for (let y = F.top + 10; y < F.bottom; y += 50) for (let x = F.left + 12; x <= F.right; x += 50) pts.push({ x, y });
+      fill(50, 10);
       break;
     }
     case 'spiral': {
@@ -289,7 +546,7 @@ function layoutPoints(layout: string, rng: Rng): Pt[] {
         const r = 18 + t * 12;
         pts.push({ x: cx + Math.cos(t) * r, y: 500 + Math.sin(t) * r * 1.3 });
       }
-      for (let y = F.top + 10; y < F.bottom; y += 54) for (let x = F.left + 12; x <= F.right; x += 54) pts.push({ x, y });
+      fill(54, 10);
       break;
     }
     case 'vortex': {

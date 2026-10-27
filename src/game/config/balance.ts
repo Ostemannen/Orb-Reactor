@@ -46,7 +46,7 @@ export const RULES = {
   stageTargets: [100, 140, 190, 250, 330, 430, 560, 720, 920, 1180],
   endlessGrowth: 1.27,
   /** Peg value growth per stage (stage 1 = 1.0). */
-  stageValueGrowth: 0.1,
+  stageValueGrowth: 0.12,
   comboStep: 0.05,
   comboWindow: 1.0,
   comboDecayKeep: 0.5,

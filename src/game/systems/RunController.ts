@@ -16,7 +16,7 @@ import type { AchievementDef } from '../../data/achievements';
 import { COSMETIC_MAP, type CosmeticSlot } from '../../data/cosmetics';
 import { CAMPAIGN_MODS, OBJECTIVES, getLevel, levelSetup, objectiveValue, shotBonus, starsFor, type LevelDef } from '../../data/campaign';
 
-const CAMPAIGN_CREDITS_PER_STAR = 3;
+const CAMPAIGN_CREDITS_PER_STAR = 2;
 
 /** What the UI needs to render the end-of-run screen. */
 export interface RunSummary {

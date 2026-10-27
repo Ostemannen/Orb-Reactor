@@ -7,7 +7,7 @@
  *      FROM=1 TO=30 npm run levels (a range, merged into the existing table)
  */
 import { writeFileSync, readFileSync } from 'node:fs';
-import { CAMPAIGN_LENGTH, CAMPAIGN_MODS, LEVELS_PER_WORLD, levelSetup, objectiveValue, planLevel, shotBonus, type ObjectiveKind } from '../src/data/campaign';
+import { CAMPAIGN_LENGTH, CAMPAIGN_MODS, LEVELS_PER_WORLD, STAR_STEPS, levelSetup, objectiveValue, planLevel, shotBonus, type ObjectiveKind } from '../src/data/campaign';
 import { ReactorSim } from '../src/game/systems/ReactorSim';
 import { stageConfig } from '../src/data/stages';
 import { Rng } from '../src/game/utils/rng';
@@ -86,9 +86,8 @@ function calibrate(n: number) {
     }
     if (scores.length < 2) continue;
     const ms = median(scores);
-    const s2 = Math.round((ms * 0.9) / 100) * 100;
-    const s3 = Math.round((ms * 1.35) / 100) * 100;
-    return { v: variant, t: target, s: [s2, s3] as [number, number], ...(override ? { o: override } : {}) };
+    const stars = STAR_STEPS.map((k) => Math.round((ms * k) / 100) * 100);
+    return { v: variant, t: target, s: stars, ...(override ? { o: override } : {}) };
   }
   throw new Error(`Level ${n}: no playable variant found`);
 }

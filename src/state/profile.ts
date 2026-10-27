@@ -148,7 +148,7 @@ export function loadProfile(): LoadResult {
     p.campaign.unlocked = Math.max(1, Math.floor(p.campaign.unlocked));
     for (const k of Object.keys(p.campaign.stars)) {
       const v = p.campaign.stars[k];
-      if (typeof v !== 'number' || v < 1 || v > 3) delete p.campaign.stars[k];
+      if (typeof v !== 'number' || v < 1 || v > 6) delete p.campaign.stars[k];
     }
     return { profile: p, recovered: false };
   } catch {

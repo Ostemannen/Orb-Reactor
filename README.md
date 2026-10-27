@@ -33,11 +33,12 @@ Hovedknappen **Play** åpner et nivåkart i Candy Crush-stil: 300 nivåer fordel
 
 - Hvert nivå har ett mål: lade reaktoren med en viss energi, treffe charged pegs, aktivere reaktornoder, knuse shield pegs, rydde en andel av brettet eller nå en combo i ett skudd.
 - Skuddene er begrenset. Skudd du ikke bruker etter at målet er nådd, blir til bonuspoeng.
-- Du får 1–3 stjerner etter poengsum. Nye stjerner gir credits første gang du tjener dem, så det går ikke an å farme ved å spille om igjen.
+- Du får 1–6 stjerner etter poengsum. De fleste nivåer gir 2–4 stjerner, mens 6 stjerner er sjeldent og krever en svært effektiv runde. Nye stjerner gir credits første gang du tjener dem, så det går ikke an å farme ved å spille om igjen.
+- Hver verden har sine egne brettformer, og sjefsnivåene bruker egne motiv-brett som hjerte, stjerne, atom og galakse.
 - Nye mekanikker kommer gradvis: portaler fra nivå 16, shields fra 31, converters fra 46, nye sektorer fra 61 og modifiers fra 76.
 - Det finnes ingen liv, ingen ventetid og ingen kjøpbare boostere. Du kan prøve på nytt så mye du vil.
 
-Nivåene genereres fra faste seeds og kalibreres med simuleringen. `npm run levels` spiller hvert nivå med en simulert spiller og setter mål og stjernegrenser ut fra hva som faktisk lar seg gjøre. Brett som ikke fungerer, forkastes. `node scripts/sim.mjs scripts/verifyCampaign.ts` sjekker vanskekurven med en svakere spiller. Nå klarer den omtrent 98 % av de første nivåene og omtrent 68 % av de siste.
+Nivåene genereres fra faste seeds og kalibreres med simuleringen. `npm run levels` spiller hvert nivå med en simulert spiller og setter mål og stjernegrenser ut fra hva som faktisk lar seg gjøre. Brett som ikke fungerer, forkastes. `node scripts/sim.mjs scripts/verifyCampaign.ts` sjekker vanskekurven med en svakere spiller. Nå klarer den omtrent 99 % av de første nivåene og omtrent 70 % av de siste.
 
 ## Reactor Run (roguelite)
 
@@ -56,7 +57,7 @@ Credits samles under runden og bankes når runden er over, også når du taper. 
 - **52 oppgraderinger** i seks kategorier (Orb, Energy, Combo, Split/Chain, Economy, Utility). De er datadrevne og stables additivt (`src/data/upgrades.ts`).
 - **5 bygg-arketyper** som vokser fram av synergier: Split, Combo, Bomb, Reactor og Credit. Draft-utvalget vekter tagger du allerede eier.
 - **10 stage-modifiers**, blant annet High Voltage, Volatile Core, Tight Reactor, Echo Split, Fragile Grid, Rich Circuit og Overheat.
-- **10 sektor-layouter**, med to *Core*-stages (5 og 10) og bevegelige peg-grupper fra stage 4.
+- **30 brettformer**, fra rutenett, pyramider og labyrinter til motiv som hjerte, stjerne, atom, galakse og DNA-spiral. Det er to *Core*-stages (5 og 10) og bevegelige peg-grupper fra stage 4. Motivbrettene står stille, så formen er lett å se.
 - **Moduser:** Kampanje (300 nivåer), Standard Run, Daily Reactor (seedet, ett forsøk per dag, ingen lab-kraft), Practice Chamber, samt Hardcore og Chaos Core som låses opp i laben.
 - **Reactor Lab:** 15 permanente noder. De fleste låser opp innhold, mens kraftøkningene er bevisst små.
 - **34 achievements** som gir credits, kosmetikk og titler.
@@ -128,6 +129,6 @@ Med dagens tall viser simuleringen dette:
 
 - Tilfeldig sikte klarer stage 1–4 i 94–100 % av tilfellene.
 - Uten oppgraderinger stopper det rundt stage 6–8.
-- Hele runder med middels sikte vinnes i omtrent 35 % av tilfellene, og de fleste tapene kommer på stage 9–10.
+- Hele runder med middels sikte vinnes i omtrent 33 % av tilfellene, og de fleste tapene kommer på stage 9–10.
 
 Alle mål og verdier justeres i `src/game/config/balance.ts`, `src/data/stages.ts` og `src/data/pegs.ts`.

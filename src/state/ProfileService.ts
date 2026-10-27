@@ -109,10 +109,10 @@ export class ProfileService {
 
   // ── Campaign ────────────────────────────────────────────────────────────
 
-  campaignSummary(): { highest: number; stars: number; threeStars: number } {
+  campaignSummary(): { highest: number; stars: number; perfect: number } {
     const c = this.profile.campaign;
     const stars = Object.values(c.stars);
-    return { highest: c.unlocked - 1, stars: stars.reduce((a, b) => a + b, 0), threeStars: stars.filter((s) => s >= 3).length };
+    return { highest: c.unlocked - 1, stars: stars.reduce((a, b) => a + b, 0), perfect: stars.filter((s) => s >= 6).length };
   }
 
   /** Record a completed level. Returns how many new stars were earned. */

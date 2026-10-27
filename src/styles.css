@@ -562,7 +562,7 @@ body.reduced-fx .panel, body.reduced-fx .intro-card, body.reduced-fx .toast { an
 @keyframes nodePulse { 50% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--accent) 25%, transparent), 0 0 30px var(--accent); } }
 .node-obj { position: absolute; top: -6px; right: -8px; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-size: 14px; background: #0e1838; color: var(--gold); border: 1px solid var(--line); }
 .node-stars { position: absolute; bottom: -16px; left: 50%; transform: translateX(-50%); display: flex; gap: 1px; font-style: normal; }
-.node-stars i { font-style: normal; font-size: 15px; color: rgba(143, 163, 204, 0.35); text-shadow: 0 1px 2px #000; }
+.node-stars i { font-style: normal; font-size: 11px; color: rgba(143, 163, 204, 0.35); text-shadow: 0 1px 2px #000; }
 .node-stars i.on { color: var(--gold); }
 .node.locked .node-stars { display: none; }
 
@@ -572,11 +572,15 @@ body.reduced-fx .panel, body.reduced-fx .intro-card, body.reduced-fx .toast { an
 .howto .peg-swatch { display: inline-grid; vertical-align: middle; margin-right: 6px; }
 .howto { display: flex; align-items: center; gap: 8px; }
 .star-row { display: flex; justify-content: center; gap: 6px; margin: 4px 0 10px; }
-.star-row i { font-style: normal; font-size: 28px; color: rgba(143, 163, 204, 0.3); }
+.star-row i { font-style: normal; font-size: 22px; color: rgba(143, 163, 204, 0.3); }
 .star-row i.on { color: var(--gold); text-shadow: 0 0 14px rgba(255, 211, 90, 0.8); }
-.star-row.big i { font-size: 54px; }
+.star-row.big i { font-size: 40px; }
 .star-row.big i.on { animation: starPop 0.45s cubic-bezier(0.2, 1.6, 0.4, 1) both; animation-delay: var(--d); }
 @keyframes starPop { from { transform: scale(0) rotate(-40deg); opacity: 0; } }
 .result-card .row { margin-top: 10px; }
 .result-card.lose h2 { color: #ffb3bd; }
 .fail-line { font-size: 18px; color: #ffd1d7; }
+
+.intro-sub { margin-top: 2px; font-size: 14px; color: var(--muted); font-weight: 600; }
+.node-stars { gap: 0; }
+@media (max-width: 380px) { .star-row.big i { font-size: 34px; } }

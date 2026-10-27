@@ -21,7 +21,7 @@ export const LAB_NODES: LabNode[] = [
   { id: 'peg_converter', name: 'Converter Pegs', icon: '¢', group: 'Content', costs: [70],
     desc: 'Converter pegs turn combo into credits. Unlocks Mint and Converter Coil upgrades.' },
   { id: 'sectors', name: 'Sector Maps', icon: '◈', group: 'Content', costs: [110],
-    desc: 'Adds Spiral, Vortex and Hex sector layouts to stage generation.' },
+    desc: 'Adds 14 exotic sector layouts to Reactor Runs: spiral, vortex, hex, heart, star, galaxy, atom, helix and more.' },
   { id: 'pool_1', name: 'Advanced Schematics', icon: '⌬', group: 'Schematics', costs: [120],
     desc: 'Adds 5 advanced upgrades to the draft pool (Reactor Seed, Capacitor, Multiplier Field, Reactor Efficiency, …).' },
   { id: 'pool_2', name: 'Forbidden Schematics', icon: '⍟', group: 'Schematics', costs: [240], requires: 'pool_1',

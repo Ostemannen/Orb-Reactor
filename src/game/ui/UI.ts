@@ -16,7 +16,8 @@ import { LAYOUT_NAMES } from '../../data/stages';
 import { RULES } from '../config/balance';
 import { archetypeName, buildSummary, stacksOf } from '../systems/UpgradeSystem';
 import { todayKey } from '../../state/profile';
-import { INTRODUCTIONS, LEVELS_PER_WORLD, OBJECTIVES, WORLDS, getLevel, levelCount, type LevelDef } from '../../data/campaign';
+import { INTRODUCTIONS, LEVELS_PER_WORLD, MAX_STARS, OBJECTIVES, WORLDS, getLevel, levelCount, type LevelDef } from '../../data/campaign';
+import { LAYOUT_NAMES as SECTOR_NAMES } from '../../data/stages';
 
 type Screen = 'menu' | 'game' | 'overlay';
 
@@ -525,7 +526,7 @@ export class UI implements RunUI {
       const lockedWorld = first > c.unlocked;
       body += `<section class="world ${lockedWorld ? 'locked' : ''}">
         <header class="world-head"><span class="world-num">WORLD ${w}</span><b>${esc(WORLDS[(w - 1) % WORLDS.length])}</b>
-        <span class="world-stars">★ ${worldStars}/${(last - first + 1) * 3}</span></header>
+        <span class="world-stars">★ ${worldStars}/${(last - first + 1) * MAX_STARS}</span></header>
         <div class="path">`;
       for (let n = first; n <= last; n++) {
         const i = n - first;
@@ -540,7 +541,7 @@ export class UI implements RunUI {
           aria-label="Level ${n}${locked ? ' (locked)' : `, ${stars} stars`}">
           <span class="node-num">${locked ? '🔒' : n}</span>
           ${!locked && def && def.objective !== 'energy' ? `<span class="node-obj">${esc(icon)}</span>` : ''}
-          <span class="node-stars">${[1, 2, 3].map((k) => `<i class="${k <= stars ? 'on' : ''}">★</i>`).join('')}</span>
+          <span class="node-stars">${Array.from({ length: MAX_STARS }, (_, k) => `<i class="${k < stars ? 'on' : ''}">★</i>`).join('')}</span>
         </button>`;
       }
       body += `</div></section>`;
@@ -564,7 +565,7 @@ export class UI implements RunUI {
   }
 
   private starRow(stars: number, big = false): string {
-    return `<div class="star-row ${big ? 'big' : ''}">${[1, 2, 3].map((k) => `<i class="${k <= stars ? 'on' : ''}" style="--d:${k * 0.18}s">★</i>`).join('')}</div>`;
+    return `<div class="star-row ${big ? 'big' : ''}">${Array.from({ length: MAX_STARS }, (_, i) => `<i class="${i < stars ? 'on' : ''}" style="--d:${(i + 1) * 0.14}s">★</i>`).join('')}</div>`;
   }
 
   showLevelIntro(def: LevelDef, onGo: () => void): void {
@@ -577,11 +578,12 @@ export class UI implements RunUI {
     const html = `
       <div class="intro-card ${def.boss ? 'core' : ''}">
         <div class="intro-kicker">World ${def.world} · ${esc(def.worldName)}${def.boss ? ' · BOSS LEVEL' : ''}</div>
+        <div class="intro-sub">${esc(SECTOR_NAMES[def.layout] ?? '')}</div>
         <h2>Level ${def.n}</h2>
         <div class="objective"><span class="obj-icon">${esc(o.icon)}</span><b>${esc(o.label(def.target))}</b></div>
         <div class="intro-goal">
           <div><span class="lbl">SHOTS</span><b>${def.shots}</b></div>
-          <div><span class="lbl">★★ / ★★★</span><b class="small-num">${fmt(def.stars[0])} / ${fmt(def.stars[1])}</b></div>
+          <div><span class="lbl">★ ${MAX_STARS} STARS AT</span><b class="small-num">${fmt(def.stars[def.stars.length - 1])}</b></div>
         </div>
         ${best ? this.starRow(best) : ''}
         ${intro ? `<div class="howto">${intro.peg ? `<span class="peg-swatch peg-${intro.peg}" style="--c:${hex(PEG_DEFS[intro.peg].color)}">${esc(PEG_DEFS[intro.peg].glyph)}</span>` : '💡'} <span>${esc(intro.text)}</span></div>` : ''}
@@ -608,11 +610,11 @@ export class UI implements RunUI {
     const html = `
       <div class="intro-card result-card ${r.won ? 'win' : 'lose'}">
         <div class="intro-kicker">Level ${def.n} · ${esc(def.worldName)}</div>
-        <h2>${r.won ? (r.stars === 3 ? 'Perfect!' : 'Level Complete') : 'Out of Shots'}</h2>
+        <h2>${r.won ? (r.stars === MAX_STARS ? 'Perfect!' : 'Level Complete') : 'Out of Shots'}</h2>
         ${r.won ? this.starRow(r.stars, true) : `<p class="fail-line">${esc(o.icon)} ${fmt(r.value)} / ${fmt(def.target)} — so close. Retrying is always free.</p>`}
         ${r.won ? `<div class="big-score"><span class="lbl">SCORE${r.score > r.bestBefore && r.bestBefore > 0 ? ' · <em>NEW BEST</em>' : ''}</span><b>${fmt(r.score)}</b></div>
           ${r.bonus > 0 ? `<p class="dim">Includes ${r.shotsLeft} unused shot${r.shotsLeft > 1 ? 's' : ''}: +${fmt(r.bonus)}</p>` : ''}
-          ${r.stars < 3 ? `<p class="dim small">Next star at ${fmt(def.stars[r.stars - 1])} points</p>` : ''}
+          ${r.stars < MAX_STARS ? `<p class="dim small">Next star at ${fmt(def.stars[r.stars - 1])} points</p>` : ''}
           ${r.credits > 0 ? `<p class="gold">+${r.credits} ¢${r.newStars ? ` for ${r.newStars} new star${r.newStars > 1 ? 's' : ''}` : ''}</p>` : ''}` : ''}
         <div class="row">
           <button class="btn" data-action="map">Map</button>

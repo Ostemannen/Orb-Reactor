@@ -24,7 +24,7 @@ for (let n = 1; n <= levelCount(); n++) {
   const setup = levelSetup(def, def.target);
   const hits = stageConfig(setup.stage).reactorHits;
   const b = Math.floor((n - 1) / 30);
-  const entry = band.get(b) ?? { tries: 0, pass: 0, stars: [0, 0, 0, 0] };
+  const entry = band.get(b) ?? { tries: 0, pass: 0, stars: [0, 0, 0, 0, 0, 0, 0] };
   for (let r = 0; r < 4; r++) {
     const rng = new Rng(n * 7121 + r * 13 + 99);
     const sim = new ReactorSim(setup, { mods: CAMPAIGN_MODS }, hits);
@@ -48,5 +48,5 @@ for (let n = 1; n <= levelCount(); n++) {
   band.set(b, entry);
 }
 for (const [b, e] of band) {
-  console.log(`levels ${b * 30 + 1}-${b * 30 + 30}: pass ${(100 * e.pass / e.tries).toFixed(0)}%  stars 1/2/3: ${e.stars.slice(1).join('/')}`);
+  console.log(`levels ${b * 30 + 1}-${b * 30 + 30}: pass ${(100 * e.pass / e.tries).toFixed(0)}%  stars 1-6: ${e.stars.slice(1).join('/')}`);
 }
