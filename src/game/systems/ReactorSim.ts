@@ -139,7 +139,7 @@ export class ReactorSim {
       this.shotsFired = progress.shotsFired;
       this.carryCombo = progress.carryCombo;
       this.emergencyUsed = progress.emergencyUsed;
-      this.tally = { ...progress.tally };
+      this.tally = { ...emptyTally(), ...progress.tally };
       for (const p of progress.pegs) {
         const peg = this.pegById.get(p.id);
         if (!peg) continue;
@@ -234,7 +234,19 @@ export class ReactorSim {
     return result;
   }
 
-  snapshot(): StageProgress {
+  /** Share (0–100) of clearable pegs that have been hit this stage. */
+  clearedPercent(): number {
+    let total = 0;
+    let done = 0;
+    for (const p of this.pegs) {
+      if (PEG_DEFS[p.type].persistent) continue;
+      total++;
+      if (p.state === 'spent' || p.state === 'gone') done++;
+    }
+    return total ? (done / total) * 100 : 0;
+  }
+
+    snapshot(): StageProgress {
     return {
       energy: this.energy, score: this.score, credits: this.credits, shotsLeft: this.shotsLeft,
       shotsFired: this.shotsFired, carryCombo: this.carryCombo, emergencyUsed: this.emergencyUsed,
@@ -567,6 +579,10 @@ export class ReactorSim {
         if (p.state !== 'idle') return;
         p.state = 'spent';
         const base = p.type === 'standard' ? def.energy + m.standardEnergy : def.energy * this.chargedMul;
+        if (p.type === 'charged') {
+          this.tally.charged++;
+          this.shotTally.charged++;
+        }
         this.award(p, base, def.score, value, via);
         if (p.type === 'standard' && m.chainChance > 0 && this.rng.chance(Math.min(0.9, m.chainChance))) {
           const target = this.nearestIdle(p, RULES.chainRadius);
@@ -662,6 +678,8 @@ export class ReactorSim {
         }
         p.hp = 0;
         p.state = 'spent';
+        this.tally.shields++;
+        this.shotTally.shields++;
         this.award(p, def.energy * this.shieldMul * (m.shieldBreaker > 0 ? 1.5 : 1), def.score, value, via);
         return;
       }

@@ -107,6 +107,24 @@ export class ProfileService {
     return this.profile.cosmetics.owned.filter((id) => COSMETIC_MAP[id]?.source.kind !== 'default').length;
   }
 
+  // ── Campaign ────────────────────────────────────────────────────────────
+
+  campaignSummary(): { highest: number; stars: number; threeStars: number } {
+    const c = this.profile.campaign;
+    const stars = Object.values(c.stars);
+    return { highest: c.unlocked - 1, stars: stars.reduce((a, b) => a + b, 0), threeStars: stars.filter((s) => s >= 3).length };
+  }
+
+  /** Record a completed level. Returns how many new stars were earned. */
+  recordLevel(n: number, stars: number, score: number): number {
+    const c = this.profile.campaign;
+    const prev = c.stars[n] ?? 0;
+    if (stars > prev) c.stars[n] = stars;
+    if (score > (c.best[n] ?? 0)) c.best[n] = score;
+    c.unlocked = Math.max(c.unlocked, n + 1);
+    return Math.max(0, stars - prev);
+  }
+
   // ── Achievements ────────────────────────────────────────────────────────
 
   /** Evaluate all locked achievements against a context. Returns newly unlocked. */
@@ -116,6 +134,7 @@ export class ProfileService {
       stats: p.stats,
       labPurchases: this.labPurchases(),
       cosmeticsEarned: this.cosmeticsEarned(),
+      campaign: this.campaignSummary(),
       ...partial,
     };
     const unlocked: AchievementDef[] = [];

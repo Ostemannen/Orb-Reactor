@@ -1,5 +1,6 @@
 import type { HudState } from '../scenes/BoardScene';
 import type { RunState } from '../../state/run';
+import type { ObjectiveProgress } from '../systems/RunController';
 import { MODIFIER_MAP } from '../../data/modifiers';
 import { RULES } from '../config/balance';
 import { $, esc, fmt } from './dom';
@@ -24,7 +25,7 @@ export class Hud {
         </div>
         <div class="energy" id="h-energy-bar">
           <div class="energy-fill" id="h-fill"></div>
-          <div class="energy-text"><b id="h-energy">0</b><span class="dim"> / </span><span id="h-target">100</span> <span class="bolt">⚡</span></div>
+          <div class="energy-text"><b id="h-energy">0</b><span class="dim"> / </span><span id="h-target">100</span> <span class="bolt" id="h-bolt">⚡</span></div>
           <div class="energy-flag" id="h-flag">CHARGED</div>
         </div>
       </div>`;
@@ -36,7 +37,7 @@ export class Hud {
         <button class="icon-btn" id="h-help" aria-label="Peg guide">?</button>
       </div>`;
     this.els = {};
-    for (const id of ['h-stage', 'h-of', 'h-stage-lbl', 'h-mods', 'h-score', 'h-credits', 'h-fill', 'h-energy', 'h-target', 'h-flag', 'h-combo', 'h-mult', 'h-combo-wrap', 'h-shots', 'h-fast', 'h-energy-bar']) {
+    for (const id of ['h-stage', 'h-of', 'h-stage-lbl', 'h-mods', 'h-score', 'h-credits', 'h-fill', 'h-energy', 'h-target', 'h-bolt', 'h-flag', 'h-combo', 'h-mult', 'h-combo-wrap', 'h-shots', 'h-fast', 'h-energy-bar']) {
       this.els[id] = $(`#${id}`);
     }
   }
@@ -70,20 +71,30 @@ export class Hud {
     this.els['h-mods'].classList.toggle('hidden', !modifiers.length);
   }
 
-  update(s: HudState, run: RunState | null): void {
+  /** Campaign level header. */
+  setLevel(n: number, modifiers: string[]): void {
+    this.setStage(n, true, modifiers);
+    this.set('h-stage-lbl', 'LEVEL');
+  }
+
+  update(s: HudState, run: RunState | null, objective?: ObjectiveProgress): void {
     const score = (run?.score ?? 0) + s.score;
     const credits = (run?.credits ?? 0) + s.credits;
     this.set('h-score', fmt(score));
     this.set('h-credits', this.practice ? '—' : fmt(credits));
-    this.set('h-energy', fmt(Math.floor(s.energy)));
-    this.set('h-target', this.practice ? '∞' : fmt(s.target));
-    const ratio = this.practice ? Math.min(1, s.energy / 2000) : Math.min(1, s.energy / s.target);
+    const value = objective ? objective.value : s.energy;
+    const target = objective ? objective.target : s.target;
+    this.set('h-energy', fmt(Math.floor(value)));
+    this.set('h-target', this.practice ? '∞' : `${fmt(target)}${objective && objective.label !== 'energy' ? ` ${objective.label}` : ''}`);
+    this.set('h-bolt', objective ? objective.icon : '⚡');
+    this.set('h-flag', objective ? 'GOAL MET' : 'CHARGED');
+    const ratio = this.practice ? Math.min(1, s.energy / 2000) : Math.min(1, value / target);
     const w = `${(ratio * 100).toFixed(1)}%`;
     if (this.last.fill !== w) {
       this.last.fill = w;
       this.els['h-fill'].style.width = w;
     }
-    const charged = !this.practice && s.energy >= s.target;
+    const charged = !this.practice && value >= target;
     this.els['h-energy-bar'].classList.toggle('charged', charged);
     this.set('h-combo', String(s.combo));
     this.set('h-mult', `×${s.mult.toFixed(1)}`);

@@ -1,8 +1,9 @@
-// Bundles the TypeScript balance simulation with esbuild (shipped with Vite) and runs it in Node.
+// Bundles a TypeScript script (default: the balance simulation) with esbuild, which ships with Vite, and runs it in Node.
 import { build } from 'esbuild';
 import { pathToFileURL } from 'node:url';
-import { resolve } from 'node:path';
+import { basename, resolve } from 'node:path';
 
-const out = resolve('.sim-build/balanceSim.mjs');
-await build({ entryPoints: ['scripts/balanceSim.ts'], bundle: true, platform: 'node', format: 'esm', outfile: out, logLevel: 'warning' });
+const entry = process.argv[2] ?? 'scripts/balanceSim.ts';
+const out = resolve('.sim-build', basename(entry).replace(/\.ts$/, '.mjs'));
+await build({ entryPoints: [entry], bundle: true, platform: 'node', format: 'esm', outfile: out, logLevel: 'warning' });
 await import(pathToFileURL(out).href);

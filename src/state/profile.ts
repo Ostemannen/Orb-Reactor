@@ -47,6 +47,8 @@ export interface Profile {
   daily: { lastDate: string; results: Record<string, { score: number; stage: number }> };
   settings: Settings;
   tutorialDone: boolean;
+  /** Campaign map progress: highest unlocked level, best stars and score per level. */
+  campaign: { unlocked: number; stars: Record<string, number>; best: Record<string, number> };
 }
 
 export function defaultProfile(): Profile {
@@ -67,6 +69,7 @@ export function defaultProfile(): Profile {
       sfx: true, music: true, sfxVolume: 0.8, musicVolume: 0.45, track: 'track_1', shake: true, reducedFx: false, numbers: true, autoFast: true,
     },
     tutorialDone: false,
+    campaign: { unlocked: 1, stars: {}, best: {} },
   };
 }
 
@@ -142,6 +145,11 @@ export function loadProfile(): LoadResult {
       else p.lab[k] = Math.max(0, Math.min(node.costs.length, Math.floor(lvl)));
     }
     p.credits = Math.max(0, Math.floor(p.credits));
+    p.campaign.unlocked = Math.max(1, Math.floor(p.campaign.unlocked));
+    for (const k of Object.keys(p.campaign.stars)) {
+      const v = p.campaign.stars[k];
+      if (typeof v !== 'number' || v < 1 || v > 3) delete p.campaign.stars[k];
+    }
     return { profile: p, recovered: false };
   } catch {
     try {

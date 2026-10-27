@@ -14,6 +14,7 @@ npm run dev      # utviklingsserver (http://localhost:5173)
 npm run build    # typesjekk + produksjonsbygg til dist/
 npm run preview  # server produksjonsbygget lokalt
 npm run sim      # hodeløs balansesimulering (se under)
+npm run levels   # kalibrer kampanjenivåene på nytt (skriver src/data/campaignLevels.json)
 ```
 
 Krav: Node 18+ (testet med Node 22).
@@ -26,7 +27,19 @@ Krav: Node 18+ (testet med Node 22).
 | Desktop | Musen sikter, klikk og slipp for å skyte. ←/→ eller A/D finjusterer (Shift = ekstra fint), Space/Enter skyter, P/Esc pauser. |
 | Under skudd | ⏩ spoler fram lange skudd. Auto-framspoling kan slås på i innstillinger. |
 
-## Spillsløyfen
+## Kampanje (300 nivåer)
+
+Hovedknappen **Play** åpner et nivåkart i Candy Crush-stil: 300 nivåer fordelt på 20 verdener med 15 nivåer hver. Hver verden avsluttes med et sjefsnivå.
+
+- Hvert nivå har ett mål: lade reaktoren med en viss energi, treffe charged pegs, aktivere reaktornoder, knuse shield pegs, rydde en andel av brettet eller nå en combo i ett skudd.
+- Skuddene er begrenset. Skudd du ikke bruker etter at målet er nådd, blir til bonuspoeng.
+- Du får 1–3 stjerner etter poengsum. Nye stjerner gir credits første gang du tjener dem, så det går ikke an å farme ved å spille om igjen.
+- Nye mekanikker kommer gradvis: portaler fra nivå 16, shields fra 31, converters fra 46, nye sektorer fra 61 og modifiers fra 76.
+- Det finnes ingen liv, ingen ventetid og ingen kjøpbare boostere. Du kan prøve på nytt så mye du vil.
+
+Nivåene genereres fra faste seeds og kalibreres med simuleringen. `npm run levels` spiller hvert nivå med en simulert spiller og setter mål og stjernegrenser ut fra hva som faktisk lar seg gjøre. Brett som ikke fungerer, forkastes. `node scripts/sim.mjs scripts/verifyCampaign.ts` sjekker vanskekurven med en svakere spiller. Nå klarer den omtrent 98 % av de første nivåene og omtrent 68 % av de siste.
+
+## Reactor Run (roguelite)
 
 1. Se energimålet og eventuell stage-modifier.
 2. Sikt med siktelinjen (viser banen fram til første treff).
@@ -44,9 +57,9 @@ Credits samles under runden og bankes når runden er over, også når du taper. 
 - **5 bygg-arketyper** som vokser fram av synergier: Split, Combo, Bomb, Reactor og Credit. Draft-utvalget vekter tagger du allerede eier.
 - **10 stage-modifiers**, blant annet High Voltage, Volatile Core, Tight Reactor, Echo Split, Fragile Grid, Rich Circuit og Overheat.
 - **10 sektor-layouter**, med to *Core*-stages (5 og 10) og bevegelige peg-grupper fra stage 4.
-- **Moduser:** Standard Run, Daily Reactor (seedet, ett forsøk per dag, ingen lab-kraft), Practice Chamber, samt Hardcore og Chaos Core som låses opp i laben.
+- **Moduser:** Kampanje (300 nivåer), Standard Run, Daily Reactor (seedet, ett forsøk per dag, ingen lab-kraft), Practice Chamber, samt Hardcore og Chaos Core som låses opp i laben.
 - **Reactor Lab:** 15 permanente noder. De fleste låser opp innhold, mens kraftøkningene er bevisst små.
-- **28 achievements** som gir credits, kosmetikk og titler.
+- **34 achievements** som gir credits, kosmetikk og titler.
 - **21 kosmetikk-elementer** (6 standard, 6 opptjenbare og 9 i butikken) fordelt på orb, trail, reaktortema, bakgrunn, treffeffekt og UI-aksent.
 - **Syntetisert lyd** med Web Audio: treff som stiger i tonehøyde med combo, egne lyder for hver hendelse og tre genererte musikkspor. Ingen lydfiler trengs.
 
@@ -64,7 +77,8 @@ src/
   main.ts                    oppstart: Phaser + UI + kontroller
   styles.css                 all UI-styling (mobil først, safe-area)
   data/                      ren data: pegs, upgrades, modifiers, stages,
-                             cosmetics, meta (lab), achievements, modes
+                             cosmetics, meta (lab), achievements, modes,
+                             campaign (+ kalibrert campaignLevels.json)
   state/
     profile.ts               versjonert profil, migrering, sanering, korrupsjonsvern
     ProfileService.ts        lagring, achievements, lab-kjøp, kosmetikk
@@ -84,6 +98,8 @@ src/
     ui/                      DOM-HUD og skjermer (menyer, draft, lab …)
     utils/rng.ts             seedet PRNG (mulberry32)
 scripts/balanceSim.ts        hodeløs balansesimulering
+scripts/buildCampaign.ts     kalibrering av kampanjenivåene
+scripts/verifyCampaign.ts    uavhengig vanskesjekk av kampanjen
 ```
 
 **Viktige designvalg**

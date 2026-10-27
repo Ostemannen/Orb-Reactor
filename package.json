@@ -9,7 +9,8 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "sim": "node scripts/sim.mjs"
+    "sim": "node scripts/sim.mjs",
+    "levels": "node scripts/sim.mjs scripts/buildCampaign.ts"
   },
   "dependencies": {
     "phaser": "3.90.0"

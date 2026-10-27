@@ -1,4 +1,4 @@
-import type { RunController, RunSummary, RunUI, StageIntro } from '../systems/RunController';
+import type { LevelResult, ObjectiveProgress, RunController, RunSummary, RunUI, StageIntro } from '../systems/RunController';
 import type { ProfileService } from '../../state/ProfileService';
 import type { AudioSystem } from '../systems/AudioSystem';
 import type { HudState } from '../scenes/BoardScene';
@@ -16,6 +16,7 @@ import { LAYOUT_NAMES } from '../../data/stages';
 import { RULES } from '../config/balance';
 import { archetypeName, buildSummary, stacksOf } from '../systems/UpgradeSystem';
 import { todayKey } from '../../state/profile';
+import { INTRODUCTIONS, LEVELS_PER_WORLD, OBJECTIVES, WORLDS, getLevel, levelCount, type LevelDef } from '../../data/campaign';
 
 type Screen = 'menu' | 'game' | 'overlay';
 
@@ -162,8 +163,8 @@ export class UI implements RunUI {
 
   // ── HUD (RunUI) ─────────────────────────────────────────────────────────
 
-  hud(state: HudState, run: RunState | null): void {
-    this.hudCtl.update(state, run);
+  hud(state: HudState, run: RunState | null, objective?: ObjectiveProgress): void {
+    this.hudCtl.update(state, run, objective);
   }
 
   onShotFired(): void {
@@ -187,6 +188,7 @@ export class UI implements RunUI {
     const dailyOk = this.ctl.dailyAvailable();
     const achCount = Object.keys(p.achievements).length;
     const todayRes = p.daily.results[todayKey()];
+    const camp = this.prof.campaignSummary();
     const html = `
       <div class="menu-top">
         <div class="pill credits-pill" title="Credits">¢ <b>${fmt(p.credits)}</b></div>
@@ -197,8 +199,9 @@ export class UI implements RunUI {
         <p class="tagline">Great games. Fair mechanics. No bullshit.</p>
         ${this.prof.recoveredFromCorrupt ? `<p class="notice">Your save file was unreadable, so a fresh profile was started. The damaged data was kept aside.</p>` : ''}
         <div class="menu-buttons">
-          ${saved ? `<button class="btn primary big" data-action="continue">▶ Continue Run <small>${esc(MODES[saved.mode].name)} · Stage ${saved.stage}</small></button>` : ''}
-          <button class="btn ${saved ? '' : 'primary'} big" data-action="play">${saved ? 'New Run' : '▶ Play'} <small>Standard · 10 stages</small></button>
+          <button class="btn primary big" data-action="saga">▶ Play <small>Level ${Math.min(p.campaign.unlocked, levelCount())} · ★ ${camp.stars}</small></button>
+          ${saved ? `<button class="btn" data-action="continue">Continue Reactor Run <small>${esc(MODES[saved.mode].name)} · Stage ${saved.stage}</small></button>` : ''}
+          <button class="btn" data-action="play">${saved ? 'New Reactor Run' : 'Reactor Run'} <small>Roguelite · 10 stages · draft upgrades</small></button>
           <button class="btn" data-action="daily">☼ Daily Reactor <small>${dailyOk ? 'Available today' : todayRes ? `Done · ${fmt(todayRes.score)} pts` : 'Done today'}</small></button>
           <div class="row">
             <button class="btn" data-action="practice">Practice</button>
@@ -220,6 +223,7 @@ export class UI implements RunUI {
           this.showMenu();
         }
       },
+      saga: () => this.showSaga(),
       play: () => this.startMode('standard'),
       daily: () => this.showDaily(),
       practice: () => this.ctl.startPractice(),
@@ -502,6 +506,127 @@ export class UI implements RunUI {
     }, 'overlay');
   }
 
+  // ── Campaign map ────────────────────────────────────────────────────────
+
+  showSaga(focus?: number): void {
+    this.setMode('menu');
+    this.screen = 'overlay';
+    const c = this.prof.profile.campaign;
+    const total = levelCount();
+    const sum = this.prof.campaignSummary();
+    const current = Math.min(c.unlocked, total);
+    const worlds = Math.ceil(total / LEVELS_PER_WORLD);
+    let body = '';
+    for (let w = 1; w <= worlds; w++) {
+      const first = (w - 1) * LEVELS_PER_WORLD + 1;
+      const last = Math.min(total, w * LEVELS_PER_WORLD);
+      let worldStars = 0;
+      for (let n = first; n <= last; n++) worldStars += c.stars[n] ?? 0;
+      const lockedWorld = first > c.unlocked;
+      body += `<section class="world ${lockedWorld ? 'locked' : ''}">
+        <header class="world-head"><span class="world-num">WORLD ${w}</span><b>${esc(WORLDS[(w - 1) % WORLDS.length])}</b>
+        <span class="world-stars">★ ${worldStars}/${(last - first + 1) * 3}</span></header>
+        <div class="path">`;
+      for (let n = first; n <= last; n++) {
+        const i = n - first;
+        const stars = c.stars[n] ?? 0;
+        const locked = n > c.unlocked;
+        const boss = i === LEVELS_PER_WORLD - 1;
+        const x = Math.round(Math.sin(i * 0.9) * 92);
+        const def = getLevel(n);
+        const icon = def ? OBJECTIVES[def.objective].icon : '';
+        body += `<button class="node ${locked ? 'locked' : ''} ${n === current ? 'current' : ''} ${boss ? 'boss' : ''} ${stars ? 'done' : ''}"
+          style="--x:${x}px" data-action="${locked ? 'lockedLevel' : 'level'}" data-n="${n}" ${n === (focus ?? current) ? 'id="focus-node"' : ''}
+          aria-label="Level ${n}${locked ? ' (locked)' : `, ${stars} stars`}">
+          <span class="node-num">${locked ? '🔒' : n}</span>
+          ${!locked && def && def.objective !== 'energy' ? `<span class="node-obj">${esc(icon)}</span>` : ''}
+          <span class="node-stars">${[1, 2, 3].map((k) => `<i class="${k <= stars ? 'on' : ''}">★</i>`).join('')}</span>
+        </button>`;
+      }
+      body += `</div></section>`;
+    }
+    const html = `<div class="panel saga">
+      <header class="panel-head"><button class="icon-btn" data-action="back" aria-label="Back">‹</button><h2>Campaign</h2><span class="spacer"></span>
+        <span class="pill">★ <b>${sum.stars}</b></span><span class="pill credits-pill">¢ <b>${fmt(this.prof.profile.credits)}</b></span></header>
+      <div class="scroll saga-scroll">${body}</div>
+      <footer class="panel-foot"><button class="btn primary big" data-action="level" data-n="${current}">Play level ${current}</button></footer>
+    </div>`;
+    this.render(html, {
+      back: () => this.showMenu(),
+      level: (el) => this.ctl.startLevel(Number(el.dataset.n)),
+      lockedLevel: () => {
+        this.audio.deny();
+        this.toast('🔒', 'Level locked', `Complete level ${c.unlocked} to continue.`);
+      },
+    }, 'overlay saga-screen');
+    this.overlayBack = () => this.showMenu();
+    requestAnimationFrame(() => document.getElementById('focus-node')?.scrollIntoView({ block: 'center' }));
+  }
+
+  private starRow(stars: number, big = false): string {
+    return `<div class="star-row ${big ? 'big' : ''}">${[1, 2, 3].map((k) => `<i class="${k <= stars ? 'on' : ''}" style="--d:${k * 0.18}s">★</i>`).join('')}</div>`;
+  }
+
+  showLevelIntro(def: LevelDef, onGo: () => void): void {
+    this.hudCtl.setLevel(def.n, def.modifiers);
+    this.screen = 'overlay';
+    const o = OBJECTIVES[def.objective];
+    const intro = INTRODUCTIONS[def.n];
+    const best = this.prof.profile.campaign.stars[def.n] ?? 0;
+    const mods = def.modifiers.map((id) => MODIFIER_MAP[id]).filter(Boolean);
+    const html = `
+      <div class="intro-card ${def.boss ? 'core' : ''}">
+        <div class="intro-kicker">World ${def.world} · ${esc(def.worldName)}${def.boss ? ' · BOSS LEVEL' : ''}</div>
+        <h2>Level ${def.n}</h2>
+        <div class="objective"><span class="obj-icon">${esc(o.icon)}</span><b>${esc(o.label(def.target))}</b></div>
+        <div class="intro-goal">
+          <div><span class="lbl">SHOTS</span><b>${def.shots}</b></div>
+          <div><span class="lbl">★★ / ★★★</span><b class="small-num">${fmt(def.stars[0])} / ${fmt(def.stars[1])}</b></div>
+        </div>
+        ${best ? this.starRow(best) : ''}
+        ${intro ? `<div class="howto">${intro.peg ? `<span class="peg-swatch peg-${intro.peg}" style="--c:${hex(PEG_DEFS[intro.peg].color)}">${esc(PEG_DEFS[intro.peg].glyph)}</span>` : '💡'} <span>${esc(intro.text)}</span></div>` : ''}
+        ${mods.map((m) => `<div class="modifier"><span class="mod-icon">${esc(m.icon)}</span><div><b>${esc(m.name)}</b><p>${esc(m.desc)}</p></div></div>`).join('')}
+        <p class="dim small">Unused shots after the goal is met become bonus score.</p>
+        <div class="row"><button class="btn" data-action="map">Map</button><button class="btn primary big" data-action="go">Play</button></div>
+      </div>`;
+    this.render(html, {
+      go: () => {
+        this.clear();
+        this.screen = 'game';
+        if (def.n === 1 && !this.prof.profile.tutorialDone) this.showCoach();
+        onGo();
+      },
+      map: () => this.ctl.quitToMap(),
+    }, 'intro');
+  }
+
+  showLevelResult(r: LevelResult): void {
+    this.screen = 'overlay';
+    const def = r.def;
+    const o = OBJECTIVES[def.objective];
+    const next = getLevel(def.n + 1);
+    const html = `
+      <div class="intro-card result-card ${r.won ? 'win' : 'lose'}">
+        <div class="intro-kicker">Level ${def.n} · ${esc(def.worldName)}</div>
+        <h2>${r.won ? (r.stars === 3 ? 'Perfect!' : 'Level Complete') : 'Out of Shots'}</h2>
+        ${r.won ? this.starRow(r.stars, true) : `<p class="fail-line">${esc(o.icon)} ${fmt(r.value)} / ${fmt(def.target)} — so close. Retrying is always free.</p>`}
+        ${r.won ? `<div class="big-score"><span class="lbl">SCORE${r.score > r.bestBefore && r.bestBefore > 0 ? ' · <em>NEW BEST</em>' : ''}</span><b>${fmt(r.score)}</b></div>
+          ${r.bonus > 0 ? `<p class="dim">Includes ${r.shotsLeft} unused shot${r.shotsLeft > 1 ? 's' : ''}: +${fmt(r.bonus)}</p>` : ''}
+          ${r.stars < 3 ? `<p class="dim small">Next star at ${fmt(def.stars[r.stars - 1])} points</p>` : ''}
+          ${r.credits > 0 ? `<p class="gold">+${r.credits} ¢${r.newStars ? ` for ${r.newStars} new star${r.newStars > 1 ? 's' : ''}` : ''}</p>` : ''}` : ''}
+        <div class="row">
+          <button class="btn" data-action="map">Map</button>
+          <button class="btn" data-action="retry">Retry</button>
+          ${r.won && next ? `<button class="btn primary" data-action="next">Next ▶</button>` : ''}
+        </div>
+      </div>`;
+    this.render(html, {
+      map: () => this.ctl.quitToMap(),
+      retry: () => this.ctl.restartLevel(),
+      next: () => this.ctl.startLevel(def.n + 1),
+    }, 'intro');
+  }
+
   // ── Pause ───────────────────────────────────────────────────────────────
 
   showPause(): void {
@@ -510,7 +635,8 @@ export class UI implements RunUI {
     const scene = this.ctl.scene;
     scene?.setInputEnabled(false);
     scene?.scene.pause();
-    const practice = !this.ctl.run;
+    const campaign = !!this.ctl.level;
+    const practice = !this.ctl.run && !campaign;
     const resume = () => {
       this.clear();
       this.screen = 'game';
@@ -524,7 +650,8 @@ export class UI implements RunUI {
         ${practice ? `<button class="btn" data-action="reset">Reset board</button>` : ''}
         <button class="btn" data-action="codex">Peg guide</button>
         <button class="btn" data-action="settings">Settings</button>
-        ${practice ? `<button class="btn" data-action="exit">Exit practice</button>`
+        ${campaign ? `<button class="btn" data-action="restart">Restart level</button><button class="btn" data-action="map">Quit to map</button>`
+          : practice ? `<button class="btn" data-action="exit">Exit practice</button>`
           : `<button class="btn" data-action="menu">Save & quit to menu</button><button class="btn danger" data-action="abandon">Abandon run</button>`}
       </div></div>`;
     this.render(html, {
@@ -533,6 +660,8 @@ export class UI implements RunUI {
       codex: () => this.showCodex(false, () => { this.screen = 'game'; this.showPause(); }),
       settings: () => this.showSettings(() => { this.screen = 'game'; this.showPause(); }),
       exit: () => { scene?.scene.resume(); this.ctl.quitToMenu(); },
+      restart: () => { scene?.scene.resume(); this.ctl.restartLevel(); },
+      map: () => { scene?.scene.resume(); this.ctl.quitToMap(); },
       menu: () => { scene?.scene.resume(); this.ctl.quitToMenu(); },
       abandon: () => this.confirm('Abandon this run?', 'The run ends now. Credits earned so far are still banked.', 'Abandon run',
         () => { scene?.scene.resume(); this.ctl.abandonRun(); }, () => undefined, true),

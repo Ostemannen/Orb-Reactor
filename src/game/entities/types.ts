@@ -107,6 +107,8 @@ export interface StageProgress {
 
 export interface StageTally {
   pegsHit: number;
+  charged: number;
+  shields: number;
   bombs: number;
   splits: number;
   reactors: number;
@@ -117,5 +119,5 @@ export interface StageTally {
 }
 
 export function emptyTally(): StageTally {
-  return { pegsHit: 0, bombs: 0, splits: 0, reactors: 0, teleports: 0, bestCombo: 0, bestMult: 1, maxOrbs: 1 };
+  return { pegsHit: 0, charged: 0, shields: 0, bombs: 0, splits: 0, reactors: 0, teleports: 0, bestCombo: 0, bestMult: 1, maxOrbs: 1 };
 }

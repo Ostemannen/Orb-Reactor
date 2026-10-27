@@ -11,6 +11,7 @@ export interface AchContext {
   run?: { mode: string; stage: number; score: number; pegsHit: number; upgrades: number; victory: boolean };
   stage?: { stage: number; cleared: boolean; shotsLeft: number; shotsFired: number; energy: number; target: number; tally: StageTally; mode: string };
   shot?: StageTally;
+  campaign: { highest: number; stars: number; threeStars: number };
 }
 
 export interface AchievementDef {
@@ -77,6 +78,18 @@ export const ACHIEVEMENTS: AchievementDef[] = [
     check: (c) => c.cosmeticsEarned >= 1 },
   { id: 'hardcore_5', name: 'Hardened', icon: '☠', desc: 'Reach Stage 5 in Hardcore mode.', reward: { credits: 60, title: 'Hardened' },
     check: (c) => c.run?.mode === 'hardcore' && c.run.stage >= 5 },
+  { id: 'level_10', name: 'Saga Begins', icon: '➊', desc: 'Complete campaign level 10.', reward: { credits: 15 },
+    check: (c) => c.campaign.highest >= 10 },
+  { id: 'level_50', name: 'World Walker', icon: '⌖', desc: 'Complete campaign level 50.', reward: { credits: 50 },
+    check: (c) => c.campaign.highest >= 50 },
+  { id: 'level_100', name: 'Saga Hero', icon: '⚑', desc: 'Complete campaign level 100.', reward: { credits: 100, title: 'Saga Hero' },
+    check: (c) => c.campaign.highest >= 100 },
+  { id: 'level_300', name: 'Reactor Legend', icon: '♜', desc: 'Complete all 300 campaign levels.', reward: { credits: 300, title: 'Reactor Legend' },
+    check: (c) => c.campaign.highest >= 300 },
+  { id: 'stars_150', name: 'Star Collector', icon: '★', desc: 'Earn 150 campaign stars.', reward: { credits: 60 },
+    check: (c) => c.campaign.stars >= 150 },
+  { id: 'perfect_25', name: 'Perfectionist', icon: '✯', desc: 'Get 3 stars on 25 campaign levels.', reward: { credits: 50, title: 'Perfectionist' },
+    check: (c) => c.campaign.threeStars >= 25 },
   { id: 'practice_10', name: 'Lab Rat', icon: '⚙', desc: 'Fire 10 orbs in Practice mode.', reward: { credits: 5 },
     check: (c) => c.stats.practiceShots >= 10 },
 ];

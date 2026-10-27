@@ -14,6 +14,9 @@ import type { StageSetup } from '../entities/types';
 import type { SimEvent } from './ReactorSim';
 import type { AchievementDef } from '../../data/achievements';
 import { COSMETIC_MAP, type CosmeticSlot } from '../../data/cosmetics';
+import { CAMPAIGN_MODS, OBJECTIVES, getLevel, levelSetup, objectiveValue, shotBonus, starsFor, type LevelDef } from '../../data/campaign';
+
+const CAMPAIGN_CREDITS_PER_STAR = 3;
 
 /** What the UI needs to render the end-of-run screen. */
 export interface RunSummary {
@@ -41,9 +44,32 @@ export interface StageIntro {
   endless: boolean;
 }
 
+export interface ObjectiveProgress {
+  value: number;
+  target: number;
+  icon: string;
+  label: string;
+}
+
+export interface LevelResult {
+  def: LevelDef;
+  won: boolean;
+  value: number;
+  score: number;
+  stars: number;
+  newStars: number;
+  credits: number;
+  bestBefore: number;
+  shotsLeft: number;
+  bonus: number;
+}
+
 /** UI callbacks the controller drives. Implemented by the DOM UI layer. */
 export interface RunUI {
-  hud(state: HudState, run: RunState | null): void;
+  hud(state: HudState, run: RunState | null, objective?: ObjectiveProgress): void;
+  showLevelIntro(def: LevelDef, onGo: () => void): void;
+  showLevelResult(result: LevelResult): void;
+  showSaga(focus?: number): void;
   showStageIntro(info: StageIntro, onGo: () => void): void;
   showDraft(run: RunState): void;
   showVictory(run: RunState): void;
@@ -58,6 +84,8 @@ const ALL_CONTENT = ['peg_portal', 'peg_shield', 'peg_converter', 'sectors', 'po
 
 export class RunController implements BoardHost {
   run: RunState | null = null;
+  /** Active campaign level, when playing the saga map. */
+  level: LevelDef | null = null;
   scene?: BoardScene;
   ui!: RunUI;
   practiceMods: Mods = computeMods([]);
@@ -90,13 +118,22 @@ export class RunController implements BoardHost {
   }
 
   hud(state: HudState): void {
+    const sim = this.scene?.sim;
+    if (this.level && sim) {
+      const d = this.level;
+      const o = OBJECTIVES[d.objective];
+      this.ui.hud(state, null, { value: objectiveValue(d.objective, sim), target: d.target, icon: o.icon, label: o.short });
+      return;
+    }
     this.ui.hud(state, this.run);
   }
 
   onLaunch(): void {
     const p = this.profile.profile;
     p.stats.totalShots++;
-    if (!this.run) {
+    if (this.level) {
+      // Campaign shots only count toward lifetime stats.
+    } else if (!this.run) {
       p.stats.practiceShots++;
       if (p.stats.practiceShots === 10) this.profile.checkAchievements({});
     } else {
@@ -127,6 +164,10 @@ export class RunController implements BoardHost {
     if (shot.bestCombo > p.stats.longestCombo) p.stats.longestCombo = shot.bestCombo;
     if (shot.bestMult > p.stats.bestMult) p.stats.bestMult = shot.bestMult;
 
+    if (this.level) {
+      this.levelShotResolved();
+      return;
+    }
     if (!this.run) {
       // Practice: only practice achievements; keep shooting.
       this.profile.save();
@@ -166,6 +207,7 @@ export class RunController implements BoardHost {
   }
 
   startRun(modeId: ModeId): void {
+    this.level = null;
     const mode = MODES[modeId];
     const prof = this.profile;
     const today = todayKey();
@@ -228,8 +270,74 @@ export class RunController implements BoardHost {
     return true;
   }
 
+  // ── Campaign ────────────────────────────────────────────────────────────
+
+  startLevel(n: number): void {
+    const def = getLevel(n);
+    if (!def || n > this.profile.profile.campaign.unlocked) return;
+    this.run = null;
+    this.level = def;
+    this.ui.enterGameplay(false);
+    this.scene?.startStage(levelSetup(def, def.target), CAMPAIGN_MODS, undefined, false);
+    this.ui.showLevelIntro(def, () => this.scene?.setInputEnabled(true));
+  }
+
+  restartLevel(): void {
+    if (this.level) this.startLevel(this.level.n);
+  }
+
+  quitToMap(): void {
+    const n = this.level?.n;
+    this.level = null;
+    this.run = null;
+    this.scene?.setInputEnabled(false);
+    this.scene?.startAttract();
+    this.ui.showSaga(n);
+  }
+
+  private levelShotResolved(): void {
+    const sim = this.scene!.sim!;
+    const def = this.level!;
+    const value = objectiveValue(def.objective, sim);
+    const won = value >= def.target;
+    if (!won && sim.shotsLeft > 0) {
+      this.profile.save();
+      this.scene?.setInputEnabled(true);
+      return;
+    }
+    this.scene?.setInputEnabled(false);
+    const p = this.profile;
+    const st = p.profile.stats;
+    st.totalPegs += sim.tally.pegsHit;
+    st.totalReactors += sim.tally.reactors;
+    st.totalBombs += sim.tally.bombs;
+    st.totalSplits += sim.tally.splits;
+    const bonus = won ? sim.shotsLeft * shotBonus(def) : 0;
+    const score = sim.score + bonus;
+    const bestBefore = p.profile.campaign.best[def.n] ?? 0;
+    let stars = 0;
+    let newStars = 0;
+    let credits = 0;
+    if (won) {
+      stars = starsFor(def, score);
+      newStars = p.recordLevel(def.n, stars, score);
+      // Credits only for stars earned for the first time, so replaying never farms.
+      credits = newStars * CAMPAIGN_CREDITS_PER_STAR + (bestBefore === 0 ? sim.credits : 0);
+      p.profile.credits += credits;
+      st.totalCredits += credits;
+      st.highScore = Math.max(st.highScore, score);
+      this.audio.stageClear();
+    } else {
+      this.audio.runOver();
+    }
+    p.checkAchievements({ shot: sim.shotTally });
+    p.save();
+    this.ui.showLevelResult({ def, won, value, score, stars, newStars, credits, bestBefore, shotsLeft: sim.shotsLeft, bonus });
+  }
+
   startPractice(): void {
     this.run = null;
+    this.level = null;
     this.practiceMods = computeMods([]);
     this.ui.enterGameplay(true);
     this.scene?.startStage(generatePracticeStage(), this.practiceMods, undefined, true);
@@ -247,6 +355,7 @@ export class RunController implements BoardHost {
   quitToMenu(): void {
     if (this.run) saveRun(this.run);
     this.run = null;
+    this.level = null;
     this.scene?.setInputEnabled(false);
     this.scene?.startAttract();
     this.ui.showMenu();
